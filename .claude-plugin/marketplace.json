@@ -1,0 +1,13 @@
+{
+  "name": "via-plugins-marketplace-for-claude-code",
+  "owner": {
+    "name": "Via INC"
+  },
+  "plugins": [
+    {
+      "name": "via-cc-plugin",
+      "source": "./via-cc-plugin",
+      "description": "A simple greeting plugin to learn the basics"
+    }
+  ]
+}
