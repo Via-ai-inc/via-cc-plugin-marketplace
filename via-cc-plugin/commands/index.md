@@ -21,18 +21,16 @@ Execute the `index-repository.sh` shell script to index a workspace directory wi
 ## Task
 
 1. Parse the directory argument from the user's command (optional)
-2. If no directory specified, use current working directory
-3. Find the plugin's script location and run the indexing script
+2. Execute the indexing script using the command below
 
-**Script Location:**
-The `index-repository.sh` script is located in the via-cc-plugin commands directory. Find it using:
-
+**If user provides a directory path:**
 ```bash
-# Locate the installed plugin script
-PLUGIN_SCRIPT=$(find ~/.claude/plugins/cache/via-plugins-marketplace-for-claude-code/via-cc-plugin -type f -name "index-repository.sh" | head -1)
+bash "$(find ~/.claude/plugins/cache/via-plugins-marketplace-for-claude-code/via-cc-plugin -type f -name "index-repository.sh" | head -1)" <directory-path>
+```
 
-# Run with the provided directory (or no args for current directory)
-bash "$PLUGIN_SCRIPT" [directory]
+**If no directory specified (index current directory):**
+```bash
+bash "$(find ~/.claude/plugins/cache/via-plugins-marketplace-for-claude-code/via-cc-plugin -type f -name "index-repository.sh" | head -1)"
 ```
 
 The script uses the `ANTHROPIC_API_KEY` environment variable for authentication.
@@ -44,7 +42,7 @@ The script uses the `ANTHROPIC_API_KEY` environment variable for authentication.
 User: /via-cc-plugin:index
 
 You: I'll index your current directory using the Via service.
-[Execute: Find and run index-repository.sh]
+[Execute: bash "$(find ~/.claude/plugins/cache/via-plugins-marketplace-for-claude-code/via-cc-plugin -type f -name "index-repository.sh" | head -1)"]
 ```
 
 **Index specific directory:**
@@ -52,7 +50,7 @@ You: I'll index your current directory using the Via service.
 User: /via-cc-plugin:index ~/testing
 
 You: I'll index ~/testing using the Via service.
-[Execute: Find and run index-repository.sh ~/testing]
+[Execute: bash "$(find ~/.claude/plugins/cache/via-plugins-marketplace-for-claude-code/via-cc-plugin -type f -name "index-repository.sh" | head -1)" ~/testing]
 ```
 
 ## Error Handling
