@@ -9,19 +9,20 @@ Execute the `index-repository.sh` shell script to index a workspace directory wi
 ## Syntax
 
 ```
-/via-cc-plugin:index <token> [directory]
+/via-cc-plugin:index [directory]
 ```
 
 **Arguments:**
-- `token` - Via API authentication token (required)
 - `directory` - Path to directory to index (optional, defaults to current directory)
+
+**Environment Variables:**
+- `ANTHROPIC_API_KEY` - Via API authentication token (must be set)
 
 ## Task
 
-1. Parse the token argument from the user's command
-2. Validate that token is provided
-3. If no directory specified, use current working directory
-4. Find the plugin's script location and run the indexing script
+1. Parse the directory argument from the user's command (optional)
+2. If no directory specified, use current working directory
+3. Find the plugin's script location and run the indexing script
 
 **Script Location:**
 The `index-repository.sh` script is located in the via-cc-plugin commands directory. Find it using:
@@ -30,40 +31,36 @@ The `index-repository.sh` script is located in the via-cc-plugin commands direct
 # Locate the installed plugin script
 PLUGIN_SCRIPT=$(find ~/.claude/plugins/cache/via-plugins-marketplace-for-claude-code/via-cc-plugin -type f -name "index-repository.sh" | head -1)
 
-# Run with the provided arguments
-bash "$PLUGIN_SCRIPT" <token> [directory]
+# Run with the provided directory (or no args for current directory)
+bash "$PLUGIN_SCRIPT" [directory]
 ```
 
-Replace `<token>` and `[directory]` with the actual values from the user's command.
+The script uses the `ANTHROPIC_API_KEY` environment variable for authentication.
 
 ## Examples
 
 **Index current directory:**
 ```
-User: /via-cc-plugin:index sk-1234567890
+User: /via-cc-plugin:index
 
 You: I'll index your current directory using the Via service.
-[Execute: Find and run index-repository.sh sk-1234567890]
+[Execute: Find and run index-repository.sh]
 ```
 
 **Index specific directory:**
 ```
-User: /via-cc-plugin:index sk-1234567890 ~/testing
+User: /via-cc-plugin:index ~/testing
 
 You: I'll index ~/testing using the Via service.
-[Execute: Find and run index-repository.sh sk-1234567890 ~/testing]
+[Execute: Find and run index-repository.sh ~/testing]
 ```
 
 ## Error Handling
 
-If the user doesn't provide a token:
+If the `ANTHROPIC_API_KEY` environment variable is not set:
 ```
-User: /via-cc-plugin:index
-
-You: The index command requires your Via API authentication token.
-
-Example: /via-cc-plugin:index sk-your-token
-Example with directory: /via-cc-plugin:index sk-your-token ~/testing
+The script will return an error message indicating the environment variable is required.
+Make sure users have set: export ANTHROPIC_API_KEY="sk-your-via-key"
 ```
 
 ## Notes

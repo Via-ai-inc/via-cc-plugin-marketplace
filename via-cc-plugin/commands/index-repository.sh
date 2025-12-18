@@ -4,15 +4,17 @@ set -e  # Exit on error
 # Show usage information
 show_usage() {
     cat << EOF
-Usage: $0 <token> [workspace_dir]
+Usage: $0 [workspace_dir]
 
 Arguments:
-  token           Via API authentication token (required)
   workspace_dir   Directory to index (optional, defaults to current directory)
 
+Environment Variables:
+  ANTHROPIC_API_KEY   Via API authentication token (required)
+
 Examples:
-  $0 sk-1234567890 ~/testing      # Index specific directory
-  $0 sk-1234567890                # Index current directory
+  $0 ~/testing      # Index specific directory
+  $0                # Index current directory
 
 Service URL: https://via-litellm-dev-647509527972.us-west1.run.app
 
@@ -30,16 +32,16 @@ NC='\033[0m' # No Color
 VIA_LITELLM_SERVICE_URL="https://via-litellm-dev-647509527972.us-west1.run.app"
 
 # Parse command-line arguments
-if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     show_usage
 fi
 
-VIA_LITELLM_API_KEY="$1"
-WORKSPACE_DIR="${2:-$(pwd)}"  # Second arg or current directory
+WORKSPACE_DIR="${1:-$(pwd)}"  # First arg or current directory
+VIA_LITELLM_API_KEY="$ANTHROPIC_API_KEY"
 
 # Validate token is provided
 if [ -z "$VIA_LITELLM_API_KEY" ]; then
-    echo -e "${RED}[ERROR]${NC} Token is required"
+    echo -e "${RED}[ERROR]${NC} ANTHROPIC_API_KEY environment variable is not set"
     echo ""
     show_usage
 fi

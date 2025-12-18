@@ -38,28 +38,24 @@ Intelligent codebase indexing and semantic search for Claude Code.
 **Commands:**
 
 - `/via-cc-plugin:hello` - Test plugin connectivity
-- `/via-cc-plugin:index <env> <token> [path]` - Index your codebase
+- `/via-cc-plugin:index [path]` - Index your codebase
 
 ## 📖 Usage
 
 ### Index Your Codebase
 
-#### Local Development
+**Index current directory:**
 ```bash
-/via-cc-plugin:index local YOUR_LOCAL_API_KEY
+/via-cc-plugin:index
 ```
 
-Requirements:
-- Via-LiteLLM service running on `http://localhost:4000`
-- Codemap2 service running on `http://localhost:6666`
-
-#### Cloud Deployment
+**Index specific directory:**
 ```bash
-/via-cc-plugin:index cloud YOUR_CLOUD_API_KEY
+/via-cc-plugin:index ~/path/to/project
 ```
 
-Requirements:
-- Valid Via cloud API key
+**Requirements:**
+- `ANTHROPIC_API_KEY` environment variable set to your Via virtual key
 - Internet connection
 
 ### What Gets Indexed?
@@ -94,17 +90,13 @@ Once indexed, ask Claude Code:
 
 ## 🔑 Getting API Keys
 
-### Local Development Key
-
-Contact your Via administrator for a local development key, or use the key from your Via-LiteLLM `.env` file:
+Contact your Via administrator for your Via virtual API key. This key should be set as the `ANTHROPIC_API_KEY` environment variable:
 
 ```bash
-VIA_LOCAL_VIRTUAL_KEY=sk-via-...
+export ANTHROPIC_API_KEY="sk-your-via-virtual-key"
 ```
 
-### Cloud API Key
-
-Sign up at [Via Platform] (link TBD) to get your cloud API key.
+Add this to your `~/.zshrc` or `~/.bashrc` to persist across sessions.
 
 ## 🏗️ Architecture
 
@@ -164,23 +156,13 @@ claude
 - Check network connectivity
 - Try removing and re-adding the marketplace
 
-### Upload fails (Local)
+### Upload fails
 ```bash
-# Check services are running
-curl http://localhost:4000/health/liveliness
-curl http://localhost:6666/health
-
-# Verify API key
-echo $VIA_LOCAL_VIRTUAL_KEY
-```
-
-### Upload fails (Cloud)
-```bash
-# Test cloud endpoint
+# Test service endpoint
 curl https://via-litellm-dev-647509527972.us-west1.run.app/health/liveliness
 
-# Verify API key format
-echo $VIA_CLOUD_VIRTUAL_KEY | grep "sk-"
+# Verify API key is set
+echo $ANTHROPIC_API_KEY | grep "sk-"
 ```
 
 ### Tarball too small
