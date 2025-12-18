@@ -4,65 +4,44 @@ set -e  # Exit on error
 # Show usage information
 show_usage() {
     cat << EOF
-Usage: $0 <env_type> <token> [workspace_dir]
+Usage: $0 <token> [workspace_dir]
 
 Arguments:
-  env_type        Environment type: "local" or "cloud"
-  token           API authentication token
+  token           Via API authentication token (required)
   workspace_dir   Directory to index (optional, defaults to current directory)
 
 Examples:
-  $0 local sk-1234567890 ~/testing      # Index specific directory on local
-  $0 cloud sk-1234567890                # Index current directory on cloud
-  $0 local sk-1234567890                # Index current directory on local
+  $0 sk-1234567890 ~/testing      # Index specific directory
+  $0 sk-1234567890                # Index current directory
 
-Environment Types:
-  local  - Uses: http://host.docker.internal:4000
-  cloud  - Uses: https://via-litellm-dev-647509527972.us-west1.run.app
+Service URL: https://via-litellm-dev-647509527972.us-west1.run.app
 
 EOF
     exit 0
 }
 
-# Colors for output (needed for error messages before parsing)
+# Colors for output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Hardcoded service URLs
-LOCAL_URL="http://host.docker.internal:4000"
-CLOUD_URL="https://via-litellm-dev-647509527972.us-west1.run.app"
+# Via service URL (cloud only)
+VIA_LITELLM_SERVICE_URL="https://via-litellm-dev-647509527972.us-west1.run.app"
 
 # Parse command-line arguments
 if [ $# -eq 0 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     show_usage
 fi
 
-ENV_TYPE="$1"
-VIA_LITELLM_API_KEY="$2"
-WORKSPACE_DIR="${3:-$(pwd)}"  # Third arg or current directory
-
-# Validate environment type
-if [ "$ENV_TYPE" != "local" ] && [ "$ENV_TYPE" != "cloud" ]; then
-    echo -e "${RED}[ERROR]${NC} Invalid environment type: $ENV_TYPE"
-    echo "Must be 'local' or 'cloud'"
-    echo ""
-    show_usage
-fi
+VIA_LITELLM_API_KEY="$1"
+WORKSPACE_DIR="${2:-$(pwd)}"  # Second arg or current directory
 
 # Validate token is provided
 if [ -z "$VIA_LITELLM_API_KEY" ]; then
     echo -e "${RED}[ERROR]${NC} Token is required"
     echo ""
     show_usage
-fi
-
-# Set service URL based on environment type
-if [ "$ENV_TYPE" = "local" ]; then
-    VIA_LITELLM_SERVICE_URL="$LOCAL_URL"
-else
-    VIA_LITELLM_SERVICE_URL="$CLOUD_URL"
 fi
 
 # Check and install dependencies
@@ -126,7 +105,6 @@ echo ""
 echo "======================================"
 echo "Configuration"
 echo "======================================"
-echo "Environment:  $ENV_TYPE"
 echo "Service URL:  $VIA_LITELLM_SERVICE_URL"
 echo "Workspace:    $WORKSPACE_DIR"
 echo "======================================"
@@ -143,13 +121,9 @@ else
 fi
 
 # Create temporary tarball
-# Tarball name will be based on repo/directory name for identification
 TEMP_DIR=$(mktemp -d)
 
 # Generate tarball name from repository identity
-# Priority:
-#   1. Git repo name (if available) - e.g., "via-litellm"
-#   2. Directory name - e.g., "my-project"
 TARBALL_NAME=""
 
 if [ -d "$WORKSPACE_DIR/.git" ]; then
@@ -173,7 +147,6 @@ log_info "Creating tarball from $WORKSPACE_DIR"
 log_info "Excluding: .git, node_modules, __pycache__, venv, ..."
 
 # Create tarball with exclusions
-# Use faster compression (-1) and exclude common patterns
 tar -czf "$TARBALL_PATH" \
     -C "$WORKSPACE_DIR" \
     --exclude='.git' \
@@ -242,6 +215,7 @@ tar -czf "$TARBALL_PATH" \
     --exclude='*.dmg' \
     --exclude='via_litellm_service' \
     --exclude='workspaces' \
+    --exclude='data' \
     --exclude='*.sock' \
     --exclude='*.socket' \
     --exclude='*.lock' \
@@ -253,7 +227,7 @@ tar -czf "$TARBALL_PATH" \
 TARBALL_SIZE=$(stat -f%z "$TARBALL_PATH" 2>/dev/null || stat -c%s "$TARBALL_PATH" 2>/dev/null)
 TARBALL_SIZE_MB=$(echo "scale=1; $TARBALL_SIZE / 1024 / 1024" | bc)
 
-# Validate tarball is not suspiciously small (less than 1KB likely means empty/failed)
+# Validate tarball is not suspiciously small
 if [ "$TARBALL_SIZE" -lt 1024 ]; then
     log_error "Tarball too small: ${TARBALL_SIZE_MB} MB (${TARBALL_SIZE} bytes)"
     log_error "Directory may be empty or contain only excluded files"
@@ -263,13 +237,9 @@ fi
 
 log_info "Tarball created: ${TARBALL_SIZE_MB} MB"
 
-# Step 1: Upload tarball to via-litellm service
-# Server will generate project_id from hash(user_id + filename)
+# Upload tarball to via-litellm service
 log_info "Uploading ${TARBALL_SIZE_MB} MB (${TARBALL_NAME}.tar.gz)..."
 
-# Upload with authentication - user_id is extracted from the API key by the server
-# Server generates project_id from user_id + filename automatically
-# X-Local-Path header is optional (for display purposes only)
 # Capture both response body and HTTP status code
 HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
     "${VIA_LITELLM_SERVICE_URL}/v1/via-external/projects/upload" \
@@ -277,8 +247,7 @@ HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
     -H "X-Local-Path: ${WORKSPACE_DIR}" \
     -F "file=@${TARBALL_PATH};type=application/gzip;filename=${TARBALL_NAME}.tar.gz")
 
-# Parse response (macOS/BSD compatible)
-# Using sed '$d' to delete last line (more portable than head -n -1)
+# Parse response
 UPLOAD_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
 HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
 
@@ -286,7 +255,7 @@ HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
 if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
     log_info "Upload complete (HTTP $HTTP_STATUS)"
 
-    # Try to parse project UUID from response (if available)
+    # Try to parse project UUID from response
     if command -v jq &> /dev/null; then
         PROJECT_UUID=$(echo "$UPLOAD_BODY" | jq -r '.project_id' 2>/dev/null)
         if [ -n "$PROJECT_UUID" ] && [ "$PROJECT_UUID" != "null" ]; then
@@ -345,60 +314,3 @@ else
 fi
 
 echo ""
-
-#the below should happen async-- 
-# Step 4: Poll for codemap status
-# log_info "Waiting for codemap generation (timeout: 120s)..."
-# MAX_ATTEMPTS=40  # 40 attempts * 3 seconds = 120 seconds
-# ATTEMPT=0
-# CODEMAP_READY=false
-
-# while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-#     sleep 3
-#     ATTEMPT=$((ATTEMPT + 1))
-
-#     STATUS_RESPONSE=$(curl -s -X GET \
-#         "${VIA_LITELLM_SERVICE_URL}/api/v1/projects/${ACTUAL_WS_ID}/codemap-status" \
-#         -H "Authorization: Bearer $TOKEN" || echo '{"status":"error"}')
-
-#     STATUS=$(echo "$STATUS_RESPONSE" | grep -o '"status":"[^"]*"' | sed 's/"status":"\(.*\)"/\1/')
-
-#     if [ "$STATUS" = "available" ]; then
-#         CODEMAP_READY=true
-#         log_info "Codemap ready!"
-#         break
-#     fi
-
-#     # Show progress every 5 attempts (15 seconds)
-#     if [ $((ATTEMPT % 5)) -eq 0 ]; then
-#         log_info "Still generating codemap... (${ATTEMPT}/${MAX_ATTEMPTS} checks)"
-#     fi
-# done
-
-# if [ "$CODEMAP_READY" = false ]; then
-#     log_warn "Codemap generation timed out after 120s"
-# fi
-
-# # Step 5: Display results
-# echo ""
-# echo "======================================"
-# echo "Successfully indexed your repository:"
-# echo "======================================"
-# echo "- Workspace directory: $WORKSPACE_DIR"
-# echo "- Archive size: ${TARBALL_SIZE_MB} MB"
-# echo "- Workspace ID: $WORKSPACE_ID"
-
-# if [ "$CODEMAP_READY" = true ]; then
-#     echo "- Codemap generation: Complete"
-#     echo ""
-#     echo "You can now use code search commands:"
-#     echo "  - 'Search for the QuantityIterator class'"
-#     echo "  - 'Find all imports of numpy'"
-#     echo "  - 'Show me functions that handle HTTP requests'"
-# else
-#     echo "- Codemap generation: In progress"
-#     echo ""
-#     echo "Note: Codemap generation is still running in the background."
-#     echo "Code search will be available once generation completes."
-# fi
-echo "======================================"
